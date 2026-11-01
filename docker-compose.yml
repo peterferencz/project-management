@@ -8,12 +8,10 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    ports:
-      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uapp_user", "-papp_password"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u${MYSQL_USER}", "-p${MYSQL_PASSWORD}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -35,26 +33,32 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "${BACKEND_PORT}:${BACKEND_PORT}"
+    expose:
+      - ${BACKEND_PORT}
 
   frontend:
     container_name: sveltekit_frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    environment:
+      - PORT=${FRONTEND_PORT}
     restart: always
-    ports:
-      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
+    expose:
+      - ${FRONTEND_PORT}
 
   nginx:
     image: nginx:alpine
     container_name: nginx_proxy
     restart: always
     ports:
-      - "80:80"
+      - "80:${NGINX_INTERNAL_PORT}"
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template
+    environment:
+      - FRONTEND_PORT=${FRONTEND_PORT}
+      - BACKEND_PORT=${BACKEND_PORT}
+      - NGINX_INTERNAL_PORT=${NGINX_INTERNAL_PORT}
     depends_on:
       - frontend
       - backend
