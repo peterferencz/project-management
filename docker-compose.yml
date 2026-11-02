@@ -14,7 +14,7 @@ services:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u${MYSQL_USER}", "-p${MYSQL_PASSWORD}"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   backend:
     container_name: backend
@@ -35,6 +35,11 @@ services:
         condition: service_healthy
     expose:
       - ${BACKEND_PORT}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:${BACKEND_PORT}/api/health > /dev/null || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   frontend:
     container_name: sveltekit_frontend
@@ -60,8 +65,10 @@ services:
       - BACKEND_PORT=${BACKEND_PORT}
       - NGINX_INTERNAL_PORT=${NGINX_INTERNAL_PORT}
     depends_on:
-      - frontend
-      - backend
+      frontend:
+        condition: service_started
+      backend:
+        condition: service_healthy
 
 volumes:
   mysql_data:
