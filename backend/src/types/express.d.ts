@@ -1,9 +1,9 @@
 import 'express';
-import { User as UserEntity } from '../entities/User.js';
+import { UserEntity as UserEntity } from '../entities/UserEntity.js';
 
 declare global {
   namespace Express {
-    interface User extends UserEntity {}
+    interface User extends Omit<UserEntity, "password_hash"> {}
   }
 }
 

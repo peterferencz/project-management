@@ -24,7 +24,7 @@ services:
     restart: always
     environment:
       - PORT=${BACKEND_PORT}
-      - DB_HOST=db
+      - DB_HOST=${DB_HOST}
       - DB_USER=${MYSQL_USER}
       - DB_PASSWORD=${MYSQL_PASSWORD}
       - DB_NAME=${MYSQL_DATABASE}
@@ -32,6 +32,8 @@ services:
       - PASSWORD_HASH_SALT_ROUNDS=${PASSWORD_HASH_SALT_ROUNDS}
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     expose:
       - ${BACKEND_PORT}

@@ -1,5 +1,5 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm"
-import { User } from "./User"
+import { UserEntity } from "./UserEntity"
 import { Project } from "./Project"
 
 @Entity()
@@ -12,12 +12,12 @@ export class Task {
 
 
     // --- Relationship 1: Belongs to a Project (Optional container) ---
-    @ManyToOne(() => Project, (project) => project.tasks, { nullable: true, onDelete: 'CASCADE' })
+    @ManyToOne(() => Project, (project) => project.tasks, { nullable: false, onDelete: 'CASCADE' })
     @JoinColumn({ name: 'project_id' })
-    project?: Project | null;
+    project!: Project;
 
-    @Column({ type: "int", nullable: true })
-    project_id?: number | null;
+    @Column({ type: "int"})
+    project_id!: number;
 
 
     

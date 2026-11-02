@@ -1,39 +1,22 @@
 import express from 'express';
-import session from 'express-session';
-import passport from 'passport';
 import { Request, Response, NextFunction } from 'express';
-import bcrypt from 'bcrypt';
-import crypto from 'crypto';
 
-import { User } from './entities/User.js';
-import { requireAuthenticated, useUserAuthMiddleware } from './userAuth.js';
+import { requireAuthenticated, useUserAuthMiddleware } from './middleware/userAuth.js';
 import { AppDataSource, initDB, projectRepository, taskRepository, userRepository } from './database/db.js';
 import { Task } from './entities/Task.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import { envVars } from './schemas/EnvVars.js';
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = envVars.PORT
 
 
-app.use(express.json());
+app.use(express.json({limit: '100kb'}));
 app.use(express.urlencoded({ extended: true }));
 
+app.set('trust proxy', 1);
+
 useUserAuthMiddleware(app)
-
-
-const PASSWORD_HASH_SALT_ROUNDS: number = Number(requireEnvironmentVariable<number>("PASSWORD_HASH_SALT_ROUNDS"))
-
-if(!process.env.PASSWORD_HASH_SALT_ROUNDS){
-  throw new Error('InvalidConfigurationError - no PASSWORD_HASH_SALT_ROUNDS defined in .env')
-}
-
-function requireEnvironmentVariable<T>(name: string) : T {
-  const variable = process.env[name]
-  if(variable === undefined){
-    throw new Error(`InvalidConfigurationError - no ${name} defined in .env`)
-  }
-  
-  return variable as unknown as T;
-}
 
 const requireFieldsInBody = (fields: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -49,62 +32,14 @@ const requireFieldsInBody = (fields: string[]) => {
   };
 }
 
-app.post('/api/register', requireFieldsInBody(['username', 'password']), async (req, res, next) => {
-  const { username, password } = req.body;
-
-  // Hash password
-  const hashedPassword = await bcrypt.hash(password, PASSWORD_HASH_SALT_ROUNDS);
-
-
-  if(await userRepository.existsBy({displayname: username})){
-    res.status(400).json({ message: 'Username is already in use'})
-    return;
-  }
-
-  // Insert user into MySQL
-  const user = await userRepository.create({
-    displayname: username,
-    password_hash: hashedPassword
-  })
-
-  await userRepository.save(user);
-
-  res.status(201).json({ message: 'User registered successfully' });
-});
-
-app.post('/api/login', (req, res, next) => {
-  passport.authenticate('local', (err: any, user: any, info: any) => {
-    if(err) return next(err);
-    if(!user) return res.status(401).json({ message: 'Invalid credentials' });
-    req.logIn(user, (err) => {
-      if (err) return next(err);
-      return res.status(200).json({ message: 'ok' });
-    });
-  })(req, res, next)
-}, (req, res) => {
-  res.send(JSON.stringify({message: "ok"}))
-});
-
-app.post('/api/logout', (req, res, next) => {
-  req.logout((err) => {
-    if (err) return next(err);
-    req.session.destroy(() => {
-      res.clearCookie('connect.sid');
-      res.json({ message: 'Logged out successfully' });
-    });
-  });
-});
+app.get('/api/health', async (req, res) => {
+  res.status(200).json({message: 'ok'})
+})
 
 // Check current session state endpoint
-app.get('/api/user', requireAuthenticated, async (req, res) => {
-  const userId = req.user?.id
-  const user = await userRepository.findOneBy({id: userId})
-  if(user === null){
-    res.status(500).json({message: "Stale id"})
-    return
-  }
-  
-  res.status(200).json({ username: user.displayname, createdAt: user.created_at })
+app.get('/api/user', requireAuthenticated, async (req, res) => {  
+  const { displayname, created_at } = req.user!;
+  res.status(200).json({ username: displayname, createdAt: created_at })
 });
 
 //#region Projects
@@ -200,15 +135,6 @@ app.get('/api/projects/:projectId/tasks', requireAuthenticated, async (req, res,
     const tasks = await taskRepository.find({
       where: { 
         project_id: projectId
-      },
-      relations: {
-        project: {
-          owner: true
-        },
-        subTasks: {
-          subTasks: true
-        },
-        parentTask: true
       }
     });
 
@@ -222,11 +148,9 @@ app.get('/api/tasks/:taskId', requireAuthenticated, async (req, res) => {
   const taskId = parseInt(req.params.taskId.toString());
 
   const task = await taskRepository.findOne({
-    where: { id: taskId },
-    relations: {
-      project: { owner: true },
-      parentTask: true,
-      subTasks: true
+    where: {
+      id: taskId,
+      project: { owner: { id: req.user!.id } }
     }
   });
 
@@ -275,10 +199,10 @@ app.put('/api/tasks/:taskId', requireAuthenticated, async (req, res) => {
   const { name, description, expected_minutes } = req.body;
 
   const task = await taskRepository.findOne({
-      where: { id: taskId },
-      relations: {
-        project: { owner: true }
-      }
+      where: {
+        id: taskId,
+        project: { owner: { id: req.user!.id } }
+      },
     });
   if (!task) {
     return res.status(404).json({ message: 'Task not found' });
@@ -340,11 +264,28 @@ app.delete('/api/tasks/:taskId', requireAuthenticated, async (req, res, next) =>
   }
 });
 
-(async () => {
-  initDB().then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+app.use(errorHandler)
+
+async function main(){
+  await initDB().catch(err => {
+    console.error(err);
+    process.exit(1)
+  });
+
+  const server = await app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+
+  const shutdown = (signal: string) => {
+    console.log(`${signal} received, shutting down`);
+    server.close(async () => {
+      await AppDataSource.destroy();
+      process.exit(0);
     });
-  })
-  .catch(err => console.error(err))
-})()
+    setTimeout(() => process.exit(1), 10_000).unref(); // force exit if connections hang
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+}
+
+main()
