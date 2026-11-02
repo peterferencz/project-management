@@ -81,6 +81,8 @@
 
 <div class="page">
 	<main>
+		<a class="back" href="/">&lt;- Home</a>
+
 		<header>
 			<div>
 				<h1>[ projects ]</h1>
@@ -406,6 +408,24 @@
 		line-height: 1.5;
 		color: var(--dim);
 		overflow-wrap: anywhere;
+	}
+
+	/* back link */
+	.back {
+		display: inline-block;
+		margin-bottom: 1.75rem;
+		font-family: var(--mono);
+		font-size: 0.85rem;
+		color: var(--dim);
+		text-decoration: underline;
+		text-underline-offset: 4px;
+		transition: color 0.15s;
+	}
+
+	.back:hover,
+	.back:focus-visible {
+		color: var(--accent);
+		outline: none;
 	}
 
 	/* empty / loading */

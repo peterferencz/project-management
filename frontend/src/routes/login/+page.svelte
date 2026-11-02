@@ -2,15 +2,20 @@
 	import '#lib/theme.css';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { fly } from 'svelte/transition';
+	import { fly, slide } from 'svelte/transition';
 
+	type Mode = 'login' | 'register';
+
+	let mode = $state<Mode>('login');
 	let username = $state('');
 	let password = $state('');
-	let errorMessage = $state('');
+	let confirmPassword = $state('');
 	let submitting = $state(false);
 	let usernameInput = $state<HTMLInputElement>();
 
+	// --- error toast (fixed position, auto-dismisses) ---
 	const TOAST_MS = 5000;
+	let errorMessage = $state('');
 	let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
 	function showError(message: string) {
@@ -29,26 +34,57 @@
 		return () => clearTimeout(toastTimer);
 	});
 
-	async function handleLogin(event: SubmitEvent) {
+	function switchMode(next: Mode) {
+		mode = next;
+		password = '';
+		confirmPassword = '';
+		dismiss();
+		usernameInput?.focus();
+	}
+
+	// POST JSON and parse the reply defensively (the body may not be JSON, e.g. a proxy error page)
+	async function post(path: string, body: unknown) {
+		const response = await fetch(path, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body)
+		});
+		const data = await response.json().catch(() => null);
+		return { ok: response.ok, message: data?.message as string | undefined };
+	}
+
+	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
 		dismiss();
+
+		if (mode === 'register' && password !== confirmPassword) {
+			showError('Passwords do not match.');
+			return;
+		}
+
 		submitting = true;
-
 		try {
-			const response = await fetch('/api/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ username, password })
-			});
+			if (mode === 'register') {
+				const created = await post('/api/register', { username, password });
+				if (!created.ok) {
+					showError(created.message || 'Registration failed');
+					return;
+				}
+			}
 
-			if (response.ok) {
+			const login = await post('/api/login', { username, password });
+			if (login.ok) {
 				goto('/profile');
 				return;
 			}
 
-			// The body may not be JSON (e.g. a proxy error page), so parse defensively
-			const data = await response.json().catch(() => null);
-			showError(data?.message || 'Login failed');
+			if (mode === 'register') {
+				// the account exists now, so send the user to the login form
+				switchMode('login');
+				showError('Account created, but signing in failed. Please log in.');
+			} else {
+				showError(login.message || 'Login failed');
+			}
 		} catch {
 			showError('Could not reach the server. Check your connection and try again.');
 		} finally {
@@ -58,16 +94,16 @@
 </script>
 
 <svelte:head>
-	<title>Login</title>
+	<title>{mode === 'login' ? 'Login' : 'Register'}</title>
 </svelte:head>
 
 <div class="page">
 	<main>
 		<header>
-			<h1>[ login ]</h1>
+			<h1>[ {mode} ]</h1>
 		</header>
 
-		<form class="panel" onsubmit={handleLogin}>
+		<form class="panel" onsubmit={handleSubmit}>
 			<label class="field">
 				<span class="label">username</span>
 				<input
@@ -75,20 +111,60 @@
 					bind:this={usernameInput}
 					bind:value={username}
 					autocomplete="username"
+					minlength={mode === 'register' ? 3 : undefined}
+					maxlength="100"
 					required
 				/>
 			</label>
 
 			<label class="field">
 				<span class="label">password</span>
-				<input type="password" bind:value={password} autocomplete="current-password" required />
+				<input
+					type="password"
+					bind:value={password}
+					autocomplete={mode === 'login' ? 'current-password' : 'new-password'}
+					minlength={mode === 'register' ? 10 : undefined}
+					maxlength="72"
+					required
+				/>
+				{#if mode === 'register'}
+					<span class="hint" transition:slide={{ duration: 150 }}>10 to 72 characters</span>
+				{/if}
 			</label>
 
+			{#if mode === 'register'}
+				<label class="field" transition:slide={{ duration: 150 }}>
+					<span class="label">confirm password</span>
+					<input
+						type="password"
+						bind:value={confirmPassword}
+						autocomplete="new-password"
+						maxlength="72"
+						required
+					/>
+				</label>
+			{/if}
+
 			<button type="submit" class="btn" disabled={submitting}>
-				{submitting ? 'Signing in…' : 'Log in'}
+				{#if mode === 'login'}
+					{submitting ? 'Signing in…' : 'Log in'}
+				{:else}
+					{submitting ? 'Creating account…' : 'Create account'}
+				{/if}
 			</button>
 		</form>
+
+		<p class="switch">
+			{#if mode === 'login'}
+				No account yet?
+				<button type="button" class="link" onclick={() => switchMode('register')}>Register</button>
+			{:else}
+				Already have an account?
+				<button type="button" class="link" onclick={() => switchMode('login')}>Log in</button>
+			{/if}
+		</p>
 	</main>
+
 	<!-- Fixed-position toast: appears over the page, so it never shifts the layout -->
 	{#if errorMessage}
 		<div class="toast" role="alert" transition:fly={{ x: 24, duration: 180 }}>
@@ -144,8 +220,6 @@
 		color: var(--text-strong);
 	}
 
-
-
 	.panel {
 		background: linear-gradient(180deg, var(--surface-2), var(--surface));
 		border: 1px solid var(--line);
@@ -163,6 +237,14 @@
 		margin-bottom: 0.4rem;
 		font-family: var(--mono);
 		font-size: 0.8rem;
+		color: var(--dim);
+	}
+
+	.hint {
+		display: block;
+		margin-top: 0.4rem;
+		font-family: var(--mono);
+		font-size: 0.75rem;
 		color: var(--dim);
 	}
 
@@ -220,6 +302,33 @@
 	.btn:disabled {
 		opacity: 0.55;
 		cursor: wait;
+	}
+
+	/* switch between login and register */
+	.switch {
+		margin: 1.25rem 0 0;
+		text-align: center;
+		font-family: var(--mono);
+		font-size: 0.85rem;
+		color: var(--dim);
+	}
+
+	.link {
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--text);
+		font: inherit;
+		text-decoration: underline;
+		text-underline-offset: 4px;
+		cursor: pointer;
+		transition: color 0.15s;
+	}
+
+	.link:hover,
+	.link:focus-visible {
+		color: var(--accent);
+		outline: none;
 	}
 
 	/* toast */
@@ -293,6 +402,7 @@
 
 	@media (prefers-reduced-motion: reduce) {
 		.btn,
+		.link,
 		input,
 		.toast-close {
 			transition: none;
