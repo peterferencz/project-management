@@ -1,4 +1,3 @@
-import { Request, Response, NextFunction } from "express";
 import * as z from "zod"
 
 const USERNAME_MIN_CHARS = 4;

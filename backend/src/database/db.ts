@@ -3,6 +3,7 @@ import { UserEntity } from '../entities/UserEntity';
 import { Project } from '../entities/Project';
 import { Task } from '../entities/Task';
 import { envVars } from '../schemas/EnvVars';
+import { log } from '../logger';
 
 const AppDataSource = new DataSource({
     type: "mysql",
@@ -18,7 +19,7 @@ const AppDataSource = new DataSource({
 
 async function initDB(){
   await AppDataSource.initialize()
-  console.log("Database initialized")
+  log("Database", "Database initialized")
 }
 
 const userRepository = AppDataSource.getRepository(UserEntity)

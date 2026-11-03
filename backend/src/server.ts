@@ -6,6 +6,9 @@ import { AppDataSource, initDB, projectRepository, taskRepository, userRepositor
 import { Task } from './entities/Task.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { envVars } from './schemas/EnvVars.js';
+import { log, fatal } from './logger.js';
+import { validateBody } from './middleware/validateRequestBody.js';
+import { projectCreateBodySchema, projectUpdateBodySchema } from './schemas/ProjectSchema.js';
 
 const app = express();
 const PORT = envVars.PORT
@@ -17,20 +20,6 @@ app.use(express.urlencoded({ extended: true }));
 app.set('trust proxy', 1);
 
 useUserAuthMiddleware(app)
-
-const requireFieldsInBody = (fields: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const missing = fields.filter(field => !req.body[field]);
-
-    if (missing.length > 0) {
-      return res.status(400).json({
-        message: `Missing required fields in body: ${missing.join(', ')}` 
-      });
-    }
-
-    next();
-  };
-}
 
 app.get('/api/health', async (req, res) => {
   res.status(200).json({message: 'ok'})
@@ -53,7 +42,8 @@ app.get('/api/projects', requireAuthenticated, async (req, res) => {
 app.post(
 '/api/project/create',
 requireAuthenticated,
-requireFieldsInBody(['project_name', 'project_description']), async (req, res) => {
+validateBody(projectCreateBodySchema),
+async (req, res) => {
   const userId = req.user!.id
   const { project_name, project_description } = req.body
 
@@ -66,7 +56,10 @@ requireFieldsInBody(['project_name', 'project_description']), async (req, res) =
   return res.status(200).json({message: "ok"})
 });
 
-app.put('/api/project/:projectId', requireAuthenticated, async (req, res) => {
+app.put('/api/project/:projectId',
+  requireAuthenticated,
+  validateBody(projectUpdateBodySchema),
+  async (req, res) => {
   const projectId = parseInt(req.params.projectId.toString());
   const userId = req.user!.id;
   const { project_name, project_description } = req.body;
@@ -163,7 +156,7 @@ app.get('/api/tasks/:taskId', requireAuthenticated, async (req, res) => {
 
 app.post('/api/tasks/create',
   requireAuthenticated,
-  requireFieldsInBody(["name", "description"]),
+  //TODO require name
   async (req, res, next) => {
     const userId = req.user!.id;
     const { name, description, expected_minutes, project_id, parent_task_id } = req.body;
@@ -268,16 +261,15 @@ app.use(errorHandler)
 
 async function main(){
   await initDB().catch(err => {
-    console.error(err);
-    process.exit(1)
+    fatal("Database", err)
   });
 
   const server = await app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    log("Express", `Server running on port ${PORT}`)
   });
 
   const shutdown = (signal: string) => {
-    console.log(`${signal} received, shutting down`);
+    log("Generic", `${signal} received, shutting down`)
     server.close(async () => {
       await AppDataSource.destroy();
       process.exit(0);

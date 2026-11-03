@@ -4,10 +4,10 @@ services:
     image: mysql:8.0
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -25,11 +25,12 @@ services:
     environment:
       - PORT=${BACKEND_PORT}
       - DB_HOST=${DB_HOST}
-      - DB_USER=${MYSQL_USER}
-      - DB_PASSWORD=${MYSQL_PASSWORD}
-      - DB_NAME=${MYSQL_DATABASE}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
       - SESSION_SECRET=${SESSION_SECRET}
       - PASSWORD_HASH_SALT_ROUNDS=${PASSWORD_HASH_SALT_ROUNDS}
+      - REDIS_URL=${REDIS_URL}
     depends_on:
       db:
         condition: service_healthy
@@ -54,6 +55,19 @@ services:
     expose:
       - ${FRONTEND_PORT}
 
+  redis:
+    container_name: redis
+    image: redis:7-alpine
+    restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   nginx:
     image: nginx:alpine
     container_name: nginx_proxy
@@ -74,3 +88,4 @@ services:
 
 volumes:
   mysql_data:
+  redis_data:

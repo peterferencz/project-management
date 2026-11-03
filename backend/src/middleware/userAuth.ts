@@ -9,6 +9,9 @@ import * as z from "zod"
 import rateLimit from 'express-rate-limit';
 import { validateBody } from './validateRequestBody.js';
 import { loginBodySchema, registerBodySchema } from '../schemas/UserAuthSchemas.js';
+import { createClient } from 'redis';
+import { error, fatal, ServerModule } from '../logger.js';
+import { RedisStore } from 'connect-redis';
 
 
 const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -16,11 +19,23 @@ const PASSWORD_HASH_SALT_ROUNDS = envVars.PASSWORD_HASH_SALT_ROUNDS
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password-hihi', PASSWORD_HASH_SALT_ROUNDS);
 
 
+
+function createSessionStore() {
+  const client = createClient({ url: envVars.REDIS_URL });
+  client.on('error', (err) => error("Redis", err));
+  client.connect().catch((err) => {
+    fatal("Redis", `Cannot connect to Redis server ${err}`)
+  });
+  
+  return new RedisStore({ client, prefix: 'sess:' });
+}
+
 const expressSession = session({
   name: 'sid',
   secret: envVars.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  store: createSessionStore(),
   cookie: {
     // secure: true
     sameSite: 'lax',

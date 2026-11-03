@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { error } from '../logger';
 
 type HttpError = Error & { status?: number; driverError?: { code?: string } };
 
@@ -13,6 +14,6 @@ export function errorHandler(err: HttpError, _req: Request, res: Response, next:
         return res.status(err.status).json({ message: 'Bad request' });
     }
 
-    console.error(err);
+    error("Express", err)
     return res.status(500).json({ message: 'Internal server error' });
 }

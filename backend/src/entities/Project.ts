@@ -7,7 +7,7 @@ export class Project {
     @PrimaryGeneratedColumn()                                   id!: number
     @CreateDateColumn()                                         created_at!: Date
     @Column({ type: "varchar", length: 100 })                   name!: string
-    @Column({ type: "text" })                                   description!: string
+    @Column({ type: "text", nullable: true })                   description!: string | null
     
     @ManyToOne(() => UserEntity, { nullable: false, onDelete: "CASCADE" })
     @JoinColumn({ name: "user_id" })

@@ -1,4 +1,5 @@
 import * as z from "zod"
+import { fatal, ServerModule } from "../logger";
 
 
 const schema = z
@@ -14,6 +15,8 @@ const schema = z
     
     SESSION_SECRET: z.string().min(32, 'must be at least 32 characters'),
     PASSWORD_HASH_SALT_ROUNDS: z.coerce.number().int().min(10).max(14),
+
+    REDIS_URL: z.string().min(1)
   });
 
 const parsed = schema.safeParse(process.env);
@@ -23,11 +26,10 @@ const parsed = schema.safeParse(process.env);
 
 if (!parsed.success) {
   const lines = parsed.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`);
-  console.error(`Invalid environment variables:\n${lines.join('\n')}`);
-  process.exit(1);
+  fatal("Generic", `Invalid environment variables:\n${lines.join('\n')}`)
 }
 
-const envVars = parsed.data;
+const envVars = parsed.data!;
 const isProd = envVars.NODE_ENV === 'production';
 
 export {
