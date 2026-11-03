@@ -4,56 +4,56 @@ services:
     image: mysql:8.0
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+        MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+        MYSQL_DATABASE: ${DB_NAME}
+        MYSQL_USER: ${DB_USER}
+        MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - mysql_data:/var/lib/mysql
+        - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u${MYSQL_USER}", "-p${MYSQL_PASSWORD}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+        test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u${DB_USER}", "-p${DB_PASSWORD}"]
+        interval: 5s
+        timeout: 5s
+        retries: 10
 
   backend:
     container_name: backend
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+        context: ./backend
+        dockerfile: Dockerfile
     restart: always
     environment:
-      - PORT=${BACKEND_PORT}
-      - DB_HOST=${DB_HOST}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - SESSION_SECRET=${SESSION_SECRET}
-      - PASSWORD_HASH_SALT_ROUNDS=${PASSWORD_HASH_SALT_ROUNDS}
-      - REDIS_URL=${REDIS_URL}
+        - PORT=${BACKEND_PORT}
+        - DB_HOST=${DB_HOST}
+        - DB_USER=${DB_USER}
+        - DB_PASSWORD=${DB_PASSWORD}
+        - DB_NAME=${DB_NAME}
+        - SESSION_SECRET=${SESSION_SECRET}
+        - PASSWORD_HASH_SALT_ROUNDS=${PASSWORD_HASH_SALT_ROUNDS}
+        - REDIS_URL=${REDIS_URL}
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+        db:
+            condition: service_healthy
+        redis:
+            condition: service_healthy
     expose:
-      - ${BACKEND_PORT}
+        - ${BACKEND_PORT}
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:${BACKEND_PORT}/api/health > /dev/null || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+        test: ["CMD-SHELL", "wget -qO- http://localhost:${BACKEND_PORT}/api/health > /dev/null || exit 1"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
 
   frontend:
     container_name: sveltekit_frontend
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+        context: ./frontend
+        dockerfile: Dockerfile
     environment:
-      - PORT=${FRONTEND_PORT}
+        - PORT=${FRONTEND_PORT}
     restart: always
     expose:
-      - ${FRONTEND_PORT}
+        - ${FRONTEND_PORT}
 
   redis:
     container_name: redis
@@ -61,31 +61,31 @@ services:
     restart: always
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
-      - redis_data:/data
+        - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
+        test: ["CMD", "redis-cli", "ping"]
+        interval: 5s
+        timeout: 3s
+        retries: 10
 
   nginx:
     image: nginx:alpine
     container_name: nginx_proxy
     restart: always
     ports:
-      - "80:${NGINX_INTERNAL_PORT}"
+        - "80:${NGINX_INTERNAL_PORT}"
     volumes:
-      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template
+        - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template
     environment:
-      - FRONTEND_PORT=${FRONTEND_PORT}
-      - BACKEND_PORT=${BACKEND_PORT}
-      - NGINX_INTERNAL_PORT=${NGINX_INTERNAL_PORT}
+        - FRONTEND_PORT=${FRONTEND_PORT}
+        - BACKEND_PORT=${BACKEND_PORT}
+        - NGINX_INTERNAL_PORT=${NGINX_INTERNAL_PORT}
     depends_on:
-      frontend:
-        condition: service_started
-      backend:
-        condition: service_healthy
+        frontend:
+            condition: service_started
+        backend:
+            condition: service_healthy
 
 volumes:
-  mysql_data:
-  redis_data:
+    mysql_data:
+    redis_data:
