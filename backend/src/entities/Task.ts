@@ -8,7 +8,6 @@ export class Task {
     @CreateDateColumn()                                         created_at!: Date
     @Column({ type: "varchar", length: 100 })                   name!: string
     @Column({ type: "text" })                                   description!: string
-    @Column({ type: "int", nullable: true })                    expected_minutes?: number | null;
 
 
     // --- Relationship 1: Belongs to a Project (Optional container) ---
@@ -20,14 +19,14 @@ export class Task {
     project_id!: number;
 
 
-    
+
     // --- Relationship 2: Self-Referencing (Sub-tasks) ---
     @ManyToOne(() => Task, (task) => task.subTasks, { nullable: true, onDelete: 'CASCADE' })
     @JoinColumn({ name: 'parent_task_id' })
     parentTask?: Task | null;
 
     @Column({ type: "int", nullable: true })
-    parent_task_id?: number | null;
+    parent_task_id!: number | null;
 
     @OneToMany(() => Task, (task) => task.parentTask)
     subTasks!: Task[];

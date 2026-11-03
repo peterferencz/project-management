@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import * as z from "zod"
 
-export const validateBody = (schema: z.ZodObject) => {
+export const validateBody = <T extends z.ZodObject>(schema: T) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     const obj = schema.safeParse(req.body);
 
@@ -11,7 +11,9 @@ export const validateBody = (schema: z.ZodObject) => {
         })
     }
 
-    req.body = obj.data
+    req.body = obj.data as z.infer<T>;
     next();
   };
 };
+
+

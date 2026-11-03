@@ -37,7 +37,7 @@ validateBody(loginBodySchema),
             });
         })(req, res, next)
     }, (req, res) => {
-    res.send(JSON.stringify({message: "ok"}))
+    res.status(200).json({message: "ok"})
 });
 
 AuthRouter.post(
@@ -68,7 +68,7 @@ async (req, res, next) => {
     const { username, password } = req.body;
 
 
-    const hashedPassword = bcrypt.hashSync(password, envVars.PASSWORD_HASH_SALT_ROUNDS);
+    const hashedPassword = await bcrypt.hash(password, envVars.PASSWORD_HASH_SALT_ROUNDS);
 
 
     if(await userRepository.existsBy({displayname: username})){
