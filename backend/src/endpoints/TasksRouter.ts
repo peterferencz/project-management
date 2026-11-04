@@ -90,7 +90,7 @@ async (req: Request<{taskId: string}, {}, updateTaskBodySchemaType>, res: Respon
 
     task.name = name ?? task.name;
     task.description = description ?? task.description;
-    task.due_date = dueDate ?? task.due_date;
+    task.due_date = dueDate ? new Date(dueDate) : task.due_date;
     task.completed_at = completed ? new Date() : task.completed_at;
 
     await taskRepository.save(task);
