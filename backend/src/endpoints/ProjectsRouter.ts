@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuthenticated } from "../middleware/userAuth";
-import { projectRepository } from "../database/db";
+import { projectRepository, taskRepository } from "../database/db";
 import { validateBody } from "../middleware/validateRequestBody";
 import { projectCreateBodySchema, projectUpdateBodySchema } from "../schemas/ProjectSchema";
 
@@ -84,4 +84,27 @@ async (req, res) => {
 
     await projectRepository.remove(project);
     return res.status(200).json({ message: "Project deleted" });
+});
+
+ProjectsRouter.get(
+'/:projectId/tasks',
+requireAuthenticated,
+async (req, res) => {
+    const projectId = Number(req.params.projectId)
+    const userId = req.user!.id
+
+    if (Number.isNaN(projectId)) {
+        return res.status(400).json({ message: "Invalid projectId" })
+    }
+
+    const project = await projectRepository.findOneBy({ id: projectId, owner: { id: userId } })
+    if (project === null) {
+        return res.status(404).json({ message: "Project not found" })
+    }
+
+    const tasks = await taskRepository.find({
+        where: { project_id: projectId },
+        order: { id: "ASC" }
+    })
+    res.json(tasks)
 });

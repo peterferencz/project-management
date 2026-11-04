@@ -24,7 +24,7 @@ server {
 
     # Route API requests to the Express backend container
     location /api/ {
-        limit_req zone=api
+        limit_req zone=api;
 
         proxy_pass http://backend:${BACKEND_PORT};
         proxy_http_version 1.1;

@@ -18,7 +18,11 @@ export class Task {
     @Column({ type: "int"})
     project_id!: number;
 
+    @Column({ type: "date", nullable: true })
+    due_date!: Date|null;
 
+    @Column({ type: "datetime", nullable: true })
+    completed_at!: Date|null;
 
     // --- Relationship 2: Self-Referencing (Sub-tasks) ---
     @ManyToOne(() => Task, (task) => task.subTasks, { nullable: true, onDelete: 'CASCADE' })

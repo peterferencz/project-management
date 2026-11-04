@@ -8,18 +8,31 @@ import z from "zod";
 
 export const TasksRouter = Router()
 
+
+async function findOwnedTask(taskId: number, userId: number){
+    return await taskRepository.findOne({
+        where: {
+            id: taskId,
+            project: { owner: { id: userId } } }
+    });
+}
+
+function getTaskIdFromReq(req: Request) {
+    const n = Number(req.params.taskId)
+    return isNaN(n) ? null : n;
+}
+
+
 TasksRouter.get(
 '/:taskId',
 requireAuthenticated,
 async (req, res) => {
-    const taskId = parseInt(req.params.taskId.toString());
+    const taskId = getTaskIdFromReq(req);
+    if(taskId == null){ return res.status(400).json({message: "Invalid taskId"}) }
 
-    const task = await taskRepository.findOne({
-        where: {
-            id: taskId,
-            project: { owner: { id: req.user!.id } }
-        }
-    });
+    const userId = req.user!.id;
+
+    const task = await findOwnedTask(taskId, userId)
 
     if (!task) {
         return res.status(404).json({ message: 'Task not found' });
@@ -29,12 +42,12 @@ async (req, res) => {
 });
 
 TasksRouter.post(
-'/api/tasks/create',
+'/create',
 requireAuthenticated,
 validateBody(createTaskBodySchema),
 async (req: Request<{}, {}, createTaskBodySchemaType>, res: Response) => {
     const userId = req.user!.id;
-    const { name, description, parentTaskId, projectId } = req.body;
+    const { name, description, dueDate, parentTaskId, projectId } = req.body;
 
 
     const project = await projectRepository.findOneBy({ id: projectId, owner: { id: userId } });
@@ -50,6 +63,8 @@ async (req: Request<{}, {}, createTaskBodySchemaType>, res: Response) => {
     const task = taskRepository.create({
         name: name,
         description: description || '',
+        due_date: dueDate ?? null,
+        completed_at: null,
         project_id: projectId,
         parent_task_id: parentTaskId || null
     });
@@ -63,52 +78,37 @@ TasksRouter.put(
 requireAuthenticated,
 validateBody(updateTaskBodySchema),
 async (req: Request<{taskId: string}, {}, updateTaskBodySchemaType>, res: Response) => {
-    const taskId = parseInt(req.params.taskId);
-    const { name, description } = req.body;
+    const taskId = getTaskIdFromReq(req);
+    const { name, description, dueDate, completed } = req.body;
+    const userId = req.user!.id;
 
-    if(Number.isNaN(taskId)){
-        return res.status(400).json({message: "Invalid taskId"})
-    }
+    if(taskId == null){ return res.status(400).json({message: "Invalid taskId"}) }
 
-    const task = await taskRepository.findOne({
-        where: {
-            id: taskId,
-            project: { owner: { id: req.user!.id } }
-        }
-    });
+    const task = await findOwnedTask(taskId, userId)
 
-    if (!task) {
-        return res.status(404).json({ message: 'Task not found' });
-    }
+    if (task == null) { return res.status(404).json({ message: 'Task not found' }); }
 
     task.name = name ?? task.name;
     task.description = description ?? task.description;
+    task.due_date = dueDate ?? task.due_date;
+    task.completed_at = completed ? new Date() : task.completed_at;
 
     await taskRepository.save(task);
     return res.status(200).json({ message: 'Task updated successfully', task });
 });
 
 TasksRouter.delete(
-'/api/tasks/:taskId',
+'/:taskId',
 requireAuthenticated,
 async (req: Request<{taskId: string}, {}, {}>, res: Response) => {
-    const taskId = parseInt(req.params.taskId);
+    const taskId = getTaskIdFromReq(req);
     const userId = req.user!.id;
 
-    if(Number.isNaN(taskId)){
-        return res.status(400).json({message: "Invalid taskId"})
-    }
+    if(taskId == null){ return res.status(400).json({message: "Invalid taskId"}) }
 
-    const task = await taskRepository.findOne({
-        where: {
-            id: taskId,
-            project: { owner: { id: userId } }
-        }
-    });
+    const task = await findOwnedTask(taskId, userId);
 
-    if (!task) {
-        return res.status(404).json({ message: 'Task not found' });
-    }
+    if (task == null) { return res.status(404).json({ message: 'Task not found' }); }
 
     await taskRepository.remove(task);
     return res.status(200).json({ message: 'Task deleted successfully' });

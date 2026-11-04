@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import passport from "passport";
 import { envVars } from "../schemas/EnvVars";
 import { userRepository } from "../database/db";
+import { requireAuthenticated } from "../middleware/userAuth";
 
 
 
@@ -84,4 +85,12 @@ async (req, res, next) => {
     await userRepository.save(user);
 
     res.status(201).json({ message: 'User registered successfully' });
+});
+
+AuthRouter.get(
+'/user',
+requireAuthenticated,
+async (req, res) => {
+  const { displayname, created_at } = req.user!;
+  res.status(200).json({ username: displayname, createdAt: created_at })
 });

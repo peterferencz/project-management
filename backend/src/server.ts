@@ -23,12 +23,6 @@ app.get('/api/health', async (req, res) => {
   res.status(200).json({message: 'ok'})
 })
 
-// Check current session state endpoint
-app.get('/api/user', requireAuthenticated, async (req, res) => {
-  const { displayname, created_at } = req.user!;
-  res.status(200).json({ username: displayname, createdAt: created_at })
-});
-
 
 
 app.use('/api/auth', AuthRouter)
