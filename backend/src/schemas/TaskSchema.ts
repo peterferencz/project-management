@@ -19,7 +19,6 @@ export const createTaskBodySchema = z.object({
 
 export type updateTaskBodySchemaType = z.infer<typeof updateTaskBodySchema>;
 export const updateTaskBodySchema = z.object({
-    id: z.number().nonnegative(),
     name: taskName.optional(),
     description: taskDescription.optional(),
     dueDate: taskDueDate.optional(),
