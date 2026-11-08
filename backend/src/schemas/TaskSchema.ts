@@ -1,12 +1,12 @@
 import * as z from "zod"
 
-const TASK_NAME_MIN_CHARS = 4;
-const TASK_NAME_MAX_CHARS = 20;
+const TASK_NAME_MIN_CHARS = 1;
+const TASK_NAME_MAX_CHARS = 40;
 const TASK_DESCRIPTION_MAX_CHARS = 72;
 
 const taskName = z.string().min(TASK_NAME_MIN_CHARS).max(TASK_NAME_MAX_CHARS);
 const taskDescription = z.string().max(TASK_DESCRIPTION_MAX_CHARS);
-const taskDueDate = z.iso.date().nullable()
+const taskDueDate = z.string().nullable()
 
 export type createTaskBodySchemaType = z.infer<typeof createTaskBodySchema>;
 export const createTaskBodySchema = z.object({

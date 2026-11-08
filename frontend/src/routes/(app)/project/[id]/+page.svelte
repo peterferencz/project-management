@@ -7,6 +7,7 @@
 	import { dueLabel, dueState, todayISO } from '#lib/format.js';
 	import { LIMITS, type Task, type TaskFormValues } from '#lib/types.js';
 	import RowMenu from '#lib/components/RowMenu.svelte';
+	import DatePopover from '#lib/components/DatePopover.svelte';
 	import TaskForm from '#lib/components/TaskForm.svelte';
 	import type { PageProps } from './$types';
 
@@ -134,6 +135,11 @@
 		editing = null;
 	}
 
+	function startSubTask(parentId: number) {
+		addingSubTaskTo = parentId;
+		showNewTask = false;
+	}
+
 	async function createTask(values: TaskFormValues, parentTaskId?: number) {
 		try {
 			const { task } = await api.tasks.create({
@@ -180,6 +186,21 @@
 		}
 	}
 
+	/** Quick due-date change from the row's calendar button (optimistic, rolled back on failure) */
+	async function setDueDate(task: Task, due: string | null) {
+		if (due === (task.due_date?.slice(0, 10) ?? null)) return;
+		const before = tasks;
+		replaceTask({ ...task, due_date: due });
+		try {
+			const { task: saved } = await api.tasks.update(task.id, { dueDate: due });
+			replaceTask(saved);
+			notify.success(due ? 'Due date set' : 'Due date cleared');
+		} catch (err) {
+			tasks = before;
+			await handleApiError(err, 'Error updating due date');
+		}
+	}
+
 	async function deleteTask(task: Task) {
 		const count = subtreeIds(task.id).size - 1;
 		const ok = await confirmAction({
@@ -206,8 +227,6 @@
 <svelte:head>
 	<title>{project.name}</title>
 </svelte:head>
-
-<a class="back" href="/projects">&lt;- all projects</a>
 
 <!-- PROJECT DETAILS -->
 {#if editingProject}
@@ -337,24 +356,53 @@
 								{dueLabel(task.due_date, done)}
 							</button>
 						{/if}
-						{#if done}
-							<span class="chip ok">done</span>
-						{/if}
 					</div>
 					{#if task.description}
 						<p class="desc" class:done>{task.description}</p>
 					{/if}
 				</div>
-				<RowMenu
+				<div class="tools">
+					<DatePopover
+						align="end"
+						value={task.due_date?.slice(0, 10) ?? null}
+						onselect={(v) => setDueDate(task, v)}
+					>
+						{#snippet trigger({ open, toggle })}
+							<button
+								type="button"
+								class="icon-btn"
+								aria-label={`${task.due_date ? 'Change' : 'Set'} due date for ${task.name}`}
+								title={task.due_date ? 'Change due date' : 'Set due date'}
+								aria-haspopup="dialog"
+								aria-expanded={open}
+								onclick={toggle}
+							>
+								<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+									<rect x="2.5" y="3.5" width="11" height="10" rx="1.5" />
+									<path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" />
+								</svg>
+							</button>
+						{/snippet}
+					</DatePopover>
+					<button
+						type="button"
+						class="icon-btn"
+						aria-label={`Add sub-task to ${task.name}`}
+						title="Add sub-task"
+						onclick={() => startSubTask(task.id)}
+					>
+						<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+							<path d="M8 3v10M3 8h10" />
+						</svg>
+					</button>
+					<RowMenu
 					label={`Actions for ${task.name}`}
 					items={[
-						{ label: done ? 'Mark as not done' : 'Mark as done', onclick: () => toggleDone(task, !done) },
-						{ label: task.due_date ? 'Change due date' : 'Set due date', onclick: () => (editing = { id: task.id, focus: 'due' }) },
 						{ label: 'Edit', onclick: () => (editing = { id: task.id, focus: 'name' }) },
-						{ label: 'Add sub-task', onclick: () => { addingSubTaskTo = task.id; showNewTask = false; } },
 						{ label: 'Delete', danger: true, onclick: () => deleteTask(task) }
 					]}
-				/>
+					/>
+				</div>
 			</div>
 		{/if}
 
@@ -463,6 +511,50 @@
 	.item:hover,
 	.item:focus-within {
 		--menu-opacity: 1;
+	}
+
+	.tools {
+		display: flex;
+		flex-shrink: 0;
+		gap: 0.15rem;
+	}
+
+	/* same look and hover-reveal behaviour as the row menu button */
+	.icon-btn {
+		display: grid;
+		place-items: center;
+		width: 2rem;
+		height: 2rem;
+		padding: 0;
+		border: 1px solid transparent;
+		border-radius: var(--radius-sm);
+		background: transparent;
+		color: var(--dim);
+		cursor: pointer;
+		transition:
+			opacity 0.15s,
+			background 0.15s,
+			color 0.15s,
+			border-color 0.15s;
+	}
+
+	@media (hover: hover) {
+		.icon-btn {
+			opacity: var(--menu-opacity, 0);
+		}
+	}
+
+	.icon-btn:hover,
+	.icon-btn[aria-expanded='true'],
+	.icon-btn:focus-visible {
+		opacity: 1;
+		background: var(--surface-2);
+		border-color: var(--line-hi);
+		color: var(--accent);
+	}
+
+	.icon-btn:focus-visible {
+		outline: 2px solid var(--accent);
 	}
 
 	.item-body {

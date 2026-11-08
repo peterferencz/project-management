@@ -2,6 +2,7 @@
 	import { onMount, untrack } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { LIMITS, type TaskFormValues } from '#lib/types.js';
+	import DateField from './DateField.svelte';
 
 	type Props = {
 		/** Heading shown above the fields */
@@ -23,9 +24,9 @@
 	let submitting = $state(false);
 
 	let nameInput = $state<HTMLInputElement>();
-	let dueInput = $state<HTMLInputElement>();
+	let dateField = $state<ReturnType<typeof DateField>>();
 
-	onMount(() => (focus === 'due' ? dueInput : nameInput)?.focus());
+	onMount(() => (focus === 'due' ? dateField : nameInput)?.focus());
 
 	async function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
@@ -78,12 +79,7 @@
 		<label class="label" for="due-input">
 			<span>due date <span class="opt">(optional)</span></span>
 		</label>
-		<div class="due">
-			<input id="due-input" type="date" bind:this={dueInput} bind:value={dueDate} />
-			{#if dueDate}
-				<button type="button" class="btn secondary sm" onclick={() => (dueDate = '')}>Clear</button>
-			{/if}
-		</div>
+		<DateField id="due-input" bind:this={dateField} bind:value={dueDate} />
 	</div>
 
 	<div class="actions">
@@ -101,9 +97,4 @@
 		overflow-wrap: anywhere;
 	}
 
-	.due {
-		display: flex;
-		gap: 0.6rem;
-		max-width: 18rem;
-	}
 </style>

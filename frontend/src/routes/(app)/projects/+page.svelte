@@ -49,7 +49,6 @@
 <header class="page-head">
 	<div>
 		<h1>[ projects ]</h1>
-		<p class="sub">{data.projects.length} {data.projects.length === 1 ? 'project' : 'projects'}</p>
 	</div>
 
 	<button
@@ -67,13 +66,13 @@
 {#if showForm}
 	<form id="create-form" class="panel" onsubmit={createProject} transition:slide={{ duration: 180 }}>
 		<label class="field">
-			<span class="label">name</span>
+			<span class="label">Name</span>
 			<input
 				type="text"
 				bind:this={nameInput}
 				bind:value={name}
 				maxlength={LIMITS.projectName.max}
-				placeholder="my-new-project"
+				placeholder="New project"
 				autocomplete="off"
 				required
 			/>
@@ -81,14 +80,14 @@
 
 		<label class="field">
 			<span class="label">
-				<span>description <span class="opt">(optional)</span></span>
+				<span>Description</span>
 				<span class="opt">{description.length}/{LIMITS.projectDescription.max}</span>
 			</span>
 			<textarea
 				bind:value={description}
 				maxlength={LIMITS.projectDescription.max}
 				rows="3"
-				placeholder="what is this project about?"
+				placeholder="My super cool project"
 			></textarea>
 		</label>
 
@@ -115,7 +114,6 @@
 					{#if p.description}
 						<span class="desc">{p.description}</span>
 					{/if}
-					<span class="meta">created {formatDate(p.created_at)}</span>
 				</a>
 			</li>
 		{/each}
@@ -161,12 +159,6 @@
 		line-height: 1.5;
 		color: var(--dim);
 		overflow-wrap: anywhere;
-	}
-
-	.meta {
-		font-family: var(--mono);
-		font-size: 0.72rem;
-		color: var(--placeholder);
 	}
 
 	@media (max-width: 520px) {

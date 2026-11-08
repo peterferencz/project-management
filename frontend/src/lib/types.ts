@@ -38,6 +38,6 @@ export const LIMITS = {
 	password: { min: 8, max: 25 },
 	projectName: { min: 1, max: 64 },
 	projectDescription: { max: 255 },
-	taskName: { min: 4, max: 20 },
+	taskName: { min: 1, max: 20 },
 	taskDescription: { max: 72 }
 } as const;

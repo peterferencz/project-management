@@ -49,7 +49,6 @@
 </section>
 
 <div class="actions split">
-	<a class="btn secondary" href="/projects">My projects</a>
 	<button type="button" class="btn danger" onclick={logout} disabled={loggingOut}>
 		{loggingOut ? 'Logging out…' : 'Log out'}
 	</button>

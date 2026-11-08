@@ -56,3 +56,50 @@ export function dueLabel(due: string, done: boolean): string {
 	if (diff < 0) return `Overdue · ${-diff} days`;
 	return `Due ${formatDate(due)}`;
 }
+
+/* --- calendar helpers (used by the date picker) -------------------------------- */
+
+const parts = (iso: string) => day(iso).split('-').map(Number) as [number, number, number];
+const fromUTC = (dt: Date) => `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`;
+
+export function addDays(iso: string, n: number): string {
+	const [y, m, d] = parts(iso);
+	return fromUTC(new Date(Date.UTC(y, m - 1, d + n)));
+}
+
+/** Moves by whole months, clamping the day (Jan 31 + 1 month = Feb 28/29) */
+export function addMonths(iso: string, n: number): string {
+	const [y, m, d] = parts(iso);
+	const lastDay = new Date(Date.UTC(y, m + n, 0)).getUTCDate();
+	return fromUTC(new Date(Date.UTC(y, m - 1 + n, Math.min(d, lastDay))));
+}
+
+/** 42 consecutive dates (6 weeks, Monday first) covering the month that contains `iso` */
+export function monthGrid(iso: string): string[] {
+	const [y, m] = parts(iso);
+	const firstWeekday = new Date(Date.UTC(y, m - 1, 1)).getUTCDay(); // 0 = Sunday
+	const start = addDays(`${y}-${pad(m)}-01`, -((firstWeekday + 6) % 7));
+	return Array.from({ length: 42 }, (_, i) => addDays(start, i));
+}
+
+export function monthTitle(iso: string): string {
+	const [y, m] = parts(iso);
+	return new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(new Date(y, m - 1, 1));
+}
+
+/** Short weekday names starting on Monday */
+export function weekdayLabels(): string[] {
+	const fmt = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
+	return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(2024, 0, 1 + i))); // 2024-01-01 is a Monday
+}
+
+/** e.g. "Mon, Nov 30, 2026" */
+export function formatFullDate(iso: string): string {
+	const [y, m, d] = parts(iso);
+	return new Intl.DateTimeFormat(undefined, {
+		weekday: 'short',
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric'
+	}).format(new Date(y, m - 1, d));
+}
